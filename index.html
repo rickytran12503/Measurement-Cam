@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#000000">
+<title>NBJ MEASURE PRO</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none;}
+:root{
+  --G:#00FFB2;--R:#FF3C3C;--Y:#FFE000;--B:#00BFFF;--P:#FF5CE0;
+  --G2:rgba(0,255,178,.12);--dark:rgba(0,0,0,.85);
+}
+html,body{width:100%;height:100%;overflow:hidden;background:#000;
+  font-family:'Courier New',Courier,monospace;touch-action:none;}
+
+#video{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;}
+.grid{position:fixed;inset:0;z-index:2;pointer-events:none;
+  background-image:linear-gradient(rgba(255,255,255,.03) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(255,255,255,.03) 1px,transparent 1px);background-size:44px 44px;}
+#canvas{position:fixed;inset:0;width:100%;height:100%;z-index:10;touch-action:none;}
+
+/* PERMISSION */
+#perm{position:fixed;inset:0;z-index:300;background:#000;display:flex;
+  flex-direction:column;align-items:center;justify-content:center;gap:22px;padding:40px;text-align:center;}
+#perm h1{font-size:26px;letter-spacing:7px;color:var(--G);text-transform:uppercase;}
+#perm .sub{font-size:10px;letter-spacing:3px;color:rgba(255,255,255,.3);}
+#perm p{font-size:10px;letter-spacing:1.5px;color:rgba(255,255,255,.4);line-height:2;text-transform:uppercase;}
+.perm-btn{background:var(--G);border:none;color:#000;font-family:'Courier New',monospace;
+  font-size:11px;letter-spacing:3px;padding:16px 34px;cursor:pointer;text-transform:uppercase;font-weight:700;margin-top:6px;}
+.nbj-tag{font-size:8px;letter-spacing:4px;color:rgba(255,255,255,.15);margin-top:28px;}
+
+/* TOP HUD */
+#hud{position:fixed;top:0;left:0;right:0;z-index:30;pointer-events:none;
+  display:flex;justify-content:space-between;align-items:flex-end;padding:50px 16px 12px;
+  background:linear-gradient(to bottom,rgba(0,0,0,.7),transparent);}
+#phase-lbl{font-size:10px;letter-spacing:3px;color:var(--G);text-transform:uppercase;}
+#status-lbl{font-size:8px;letter-spacing:2px;color:rgba(255,255,255,.4);text-align:right;line-height:1.6;}
+
+/* UNITS */
+#units{position:fixed;top:46px;right:14px;z-index:40;display:flex;gap:3px;}
+.u-btn{background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.12);color:rgba(255,255,255,.35);
+  font-family:'Courier New',monospace;font-size:8px;letter-spacing:1px;padding:5px 7px;cursor:pointer;text-transform:uppercase;}
+.u-btn.on{background:var(--G);border-color:var(--G);color:#000;font-weight:700;}
+
+/* CENTER PROMPT */
+#prompt{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:20;
+  text-align:center;pointer-events:none;width:84%;}
+#prompt p{font-size:11px;letter-spacing:2px;color:rgba(255,255,255,.55);text-transform:uppercase;
+  line-height:2.2;text-shadow:0 0 14px #000;}
+
+/* SWEEP GAUGE */
+#sweep-gauge{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:18;
+  width:230px;height:230px;display:none;pointer-events:none;}
+
+/* LOUPE */
+#loupe{position:fixed;z-index:80;width:130px;height:130px;border-radius:50%;
+  border:2px solid var(--G);box-shadow:0 0 0 3px rgba(0,0,0,.6),0 6px 24px rgba(0,0,0,.8);
+  overflow:hidden;display:none;pointer-events:none;background:#000;}
+#loupe canvas{width:100%;height:100%;}
+
+/* MEASURE BOXES */
+#boxes{position:fixed;bottom:0;left:0;right:0;z-index:30;
+  padding:14px 12px calc(28px + env(safe-area-inset-bottom));
+  background:linear-gradient(to top,rgba(0,0,0,.9) 65%,transparent);display:none;}
+.box-row{display:flex;gap:8px;}
+.mbox{flex:1;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.04);
+  padding:10px 6px;cursor:pointer;transition:.12s;min-height:62px;display:flex;
+  flex-direction:column;justify-content:center;align-items:center;text-align:center;}
+.mbox .bl{font-size:8px;letter-spacing:2px;color:rgba(255,255,255,.4);text-transform:uppercase;margin-bottom:5px;}
+.mbox .bv{font-size:14px;letter-spacing:1px;color:#fff;font-weight:700;}
+.mbox .bv.empty{font-size:8px;color:rgba(255,255,255,.3);font-weight:400;letter-spacing:1px;}
+.mbox.on{background:var(--G2);border-color:var(--G);}
+.mbox.on .bl{color:var(--G);}
+.mbox.length.on{border-color:var(--G);} .mbox.length .bl.acc{color:var(--G);}
+.mbox.height.on{border-color:var(--B);background:rgba(0,191,255,.12);} .mbox.height.on .bl{color:var(--B);}
+.mbox.width.on{border-color:var(--Y);background:rgba(255,224,0,.1);} .mbox.width.on .bl{color:var(--Y);}
+.mbox.filled .bv{color:var(--G);}
+#box-actions{display:flex;gap:8px;margin-top:8px;}
+.act-btn{flex:1;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);
+  color:rgba(255,255,255,.5);font-family:'Courier New',monospace;font-size:8px;letter-spacing:1.5px;
+  padding:9px;text-align:center;cursor:pointer;text-transform:uppercase;}
+.act-btn.del{border-color:rgba(255,60,60,.25);color:rgba(255,60,60,.5);}
+.act-btn.recal{border-color:rgba(255,224,0,.25);color:rgba(255,224,0,.55);}
+
+/* CONFIRM PINPOINT BTN */
+#pin-confirm{position:fixed;bottom:calc(120px + env(safe-area-inset-bottom));left:50%;
+  transform:translateX(-50%);z-index:90;display:none;
+  background:var(--G);color:#000;border:none;font-family:'Courier New',monospace;
+  font-size:10px;letter-spacing:2px;padding:13px 28px;font-weight:700;text-transform:uppercase;cursor:pointer;}
+
+/* CAL DIALOG */
+#cal-dlg{position:fixed;bottom:90px;left:14px;right:14px;z-index:50;
+  background:rgba(0,0,0,.94);border:1px solid var(--G);padding:16px;display:none;}
+#cal-dlg.show{display:block;}
+#cal-dlg p{font-size:9px;letter-spacing:1.5px;color:rgba(255,255,255,.5);line-height:1.7;margin-bottom:12px;}
+#cal-row{display:flex;gap:8px;align-items:center;}
+#cal-inp{flex:1;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.18);color:#fff;
+  font-family:'Courier New',monospace;font-size:20px;padding:9px 12px;text-align:center;letter-spacing:2px;outline:none;}
+#cal-u{font-size:11px;color:var(--G);letter-spacing:2px;min-width:22px;}
+#cal-ok{background:var(--G);border:none;color:#000;font-family:'Courier New',monospace;
+  font-size:9px;letter-spacing:2px;padding:10px 16px;cursor:pointer;font-weight:700;text-transform:uppercase;}
+
+/* SWEEP LOCK BTN */
+#sweep-btn{position:fixed;bottom:calc(50px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);
+  z-index:50;display:none;background:var(--Y);color:#000;border:none;font-family:'Courier New',monospace;
+  font-size:11px;letter-spacing:3px;padding:15px 40px;font-weight:700;text-transform:uppercase;cursor:pointer;}
+
+/* TOAST */
+@keyframes tin{from{opacity:0;transform:translate(-50%,-50%) translateY(8px);}to{opacity:1;}}
+#toast{position:fixed;top:38%;left:50%;transform:translate(-50%,-50%);z-index:100;
+  background:rgba(0,255,178,.12);border:1px solid var(--G);color:var(--G);
+  font-size:9px;letter-spacing:3px;padding:11px 22px;display:none;text-transform:uppercase;text-align:center;line-height:1.6;}
+
+/* SNAP FLASH */
+@keyframes snp{0%{opacity:1;transform:translate(-50%,-50%) scale(1);}100%{opacity:0;transform:translate(-50%,-50%) scale(2.4);}}
+#snap{position:fixed;width:16px;height:16px;border:1px solid var(--G);border-radius:50%;
+  pointer-events:none;z-index:70;display:none;transform:translate(-50%,-50%);}
+</style>
+</head>
+<body>
+
+<!-- PERMISSION -->
+<div id="perm">
+  <h1>NBJ MEASURE</h1>
+  <div class="sub">PRO · SWEEP-LOCKED</div>
+  <p>Camera + motion sensors required<br>for sweep distance lock</p>
+  <button class="perm-btn" onclick="initAll()">INITIALIZE</button>
+  <div class="nbj-tag">NAILED BY JOHN LLC</div>
+</div>
+
+<video id="video" autoplay playsinline muted></video>
+<div class="grid"></div>
+<canvas id="canvas"></canvas>
+
+<svg id="sweep-gauge" viewBox="0 0 230 230"></svg>
+
+<div id="snap"></div>
+<div id="loupe"><canvas width="260" height="260"></canvas></div>
+<div id="toast"></div>
+
+<!-- HUD -->
+<div id="hud">
+  <div id="phase-lbl">SETUP</div>
+  <div id="status-lbl">NOT CALIBRATED</div>
+</div>
+
+<!-- UNITS -->
+<div id="units">
+  <button class="u-btn" data-u="mm" onclick="setUnit('mm')">MM</button>
+  <button class="u-btn" data-u="cm" onclick="setUnit('cm')">CM</button>
+  <button class="u-btn on" data-u="in" onclick="setUnit('in')">IN</button>
+  <button class="u-btn" data-u="ft" onclick="setUnit('ft')">FT</button>
+</div>
+
+<!-- PROMPT -->
+<div id="prompt"><p>Loading…</p></div>
+
+<!-- CAL DIALOG -->
+<div id="cal-dlg">
+  <p id="cal-p">TAP TWO ENDS OF YOUR RULER / KNOWN OBJECT</p>
+  <div id="cal-row" style="display:none">
+    <input id="cal-inp" type="number" min="0.01" step="0.01" placeholder="12.0">
+    <span id="cal-u">IN</span>
+    <button id="cal-ok" onclick="confirmRuler()">SET</button>
+  </div>
+</div>
+
+<!-- SWEEP LOCK -->
+<button id="sweep-btn" onclick="lockSweep()">LOCK SWEEP</button>
+
+<!-- PINPOINT CONFIRM -->
+<button id="pin-confirm" onclick="confirmPin()">SET PINPOINT</button>
+
+<!-- MEASURE BOXES -->
+<div id="boxes">
+  <div class="box-row">
+    <div class="mbox length" id="box-length" onclick="selectBox('length')">
+      <div class="bl">LENGTH</div><div class="bv empty">— TAP —</div>
+    </div>
+    <div class="mbox height" id="box-height" onclick="selectBox('height')">
+      <div class="bl">HEIGHT</div><div class="bv empty">— TAP —</div>
+    </div>
+    <div class="mbox width" id="box-width" onclick="selectBox('width')">
+      <div class="bl">WIDTH</div><div class="bv empty">— TAP —</div>
+    </div>
+  </div>
+  <div id="box-actions">
+    <div class="act-btn recal" onclick="restartCal()">↻ RECALIBRATE</div>
+    <div class="act-btn del" onclick="clearBoxes()">✕ CLEAR ALL</div>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════════════════════════════════════
+const S = {
+  phase: 'ruler',          // ruler | sweep | measure
+  unit: 'in',
+  pxPerMM: null,
+  // sweep
+  sweepStartAlpha: null,
+  sweepAngle: 0,
+  sweepLocked: false,
+  lockedSweepAngle: null,
+  // ruler
+  rulerPts: [],
+  // gyro
+  ori: { alpha:0, beta:0, gamma:0 },
+  hasGyro: false,
+  // measurement
+  activeBox: null,
+  data: { length:null, height:null, width:null }, // {a,b,value,lockOri}
+  // pinpoint flow
+  pinStage: 0,            // 0 idle, 1 placing start, 2 placing end
+  pendingStart: null,
+  pinPos: null,           // current pinpoint being adjusted
+  track: null
+};
+
+const COLORS = { length:'#00FFB2', height:'#00BFFF', width:'#FFE000' };
+const U_FACTOR = { mm:1, cm:.1, in:.03937, ft:.003281 };
+const U_LABEL  = { mm:'MM', cm:'CM', in:'IN', ft:'FT' };
+const U_DEC    = { mm:1, cm:2, in:3, ft:4 };
+const FOV_DEG  = 62;     // approx horizontal FOV for compensation
+const LOUPE_ZOOM = 3.0;
+
+// ════════════════════════════════════════════════════════════════════════════
+// DOM
+// ════════════════════════════════════════════════════════════════════════════
+const video=document.getElementById('video');
+const canvas=document.getElementById('canvas');
+const ctx=canvas.getContext('2d');
+const eCanvas=document.createElement('canvas');
+const eCtx=eCanvas.getContext('2d',{willReadFrequently:true});
+const loupe=document.getElementById('loupe');
+const loupeCv=loupe.querySelector('canvas');
+const loupeCtx=loupeCv.getContext('2d');
+const gauge=document.getElementById('sweep-gauge');
+const phaseLbl=document.getElementById('phase-lbl');
+const statusLbl=document.getElementById('status-lbl');
+const promptEl=document.getElementById('prompt');
+const calDlg=document.getElementById('cal-dlg');
+const calP=document.getElementById('cal-p');
+const calRow=document.getElementById('cal-row');
+const calInp=document.getElementById('cal-inp');
+const calU=document.getElementById('cal-u');
+const sweepBtn=document.getElementById('sweep-btn');
+const pinConfirm=document.getElementById('pin-confirm');
+const boxes=document.getElementById('boxes');
+const snapEl=document.getElementById('snap');
+const toastEl=document.getElementById('toast');
+
+// ════════════════════════════════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════════════════════════════════
+async function initAll(){
+  // gyro permission (iOS 13+)
+  try{
+    if(typeof DeviceOrientationEvent!=='undefined' &&
+       typeof DeviceOrientationEvent.requestPermission==='function'){
+      const st=await DeviceOrientationEvent.requestPermission();
+      if(st==='granted'){ window.addEventListener('deviceorientation',onOri); S.hasGyro=true; }
+    } else {
+      window.addEventListener('deviceorientation',onOri); S.hasGyro=true;
+    }
+  }catch(e){}
+
+  // camera
+  try{
+    const stream=await navigator.mediaDevices.getUserMedia({
+      video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}}});
+    video.srcObject=stream;
+    S.track=stream.getVideoTracks()[0];
+    video.addEventListener('loadedmetadata',()=>{
+      resize();
+      document.getElementById('perm').style.display='none';
+      setPhase('ruler');
+      requestAnimationFrame(render);
+    });
+  }catch(e){ alert('Camera access denied — allow camera and reload.'); }
+}
+
+function resize(){ canvas.width=eCanvas.width=innerWidth; canvas.height=eCanvas.height=innerHeight; }
+addEventListener('resize',resize);
+
+// ════════════════════════════════════════════════════════════════════════════
+// GYRO
+// ════════════════════════════════════════════════════════════════════════════
+let lastAlpha=null, accumSweep=0;
+function onOri(e){
+  if(e.alpha===null) return;
+  S.ori.alpha=e.alpha; S.ori.beta=e.beta||0; S.ori.gamma=e.gamma||0;
+
+  if(S.phase==='sweep' && S.sweepStartAlpha!==null){
+    if(lastAlpha!==null){
+      let d=e.alpha-lastAlpha;
+      if(d>180)d-=360; if(d<-180)d+=360;
+      accumSweep+=d;
+    }
+    lastAlpha=e.alpha;
+    S.sweepAngle=Math.abs(accumSweep);
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// RENDER
+// ════════════════════════════════════════════════════════════════════════════
+function render(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  if(S.phase==='ruler'){
+    S.rulerPts.forEach((p,i)=>{ drawCross(p.x,p.y,'#FFE000');
+      if(i===1) dash(S.rulerPts[0],p,'#FFE000'); });
+  }
+
+  if(S.phase==='measure'){
+    // existing measurements (gyro-compensated)
+    for(const k in S.data){
+      const m=S.data[k]; if(!m) continue;
+      const a=comp(m.a,m.lockOri), b=comp(m.b,m.lockOri);
+      drawMeasure(a,b,fmtVal(m.value),COLORS[k]);
+    }
+    // in-progress
+    if(S.pendingStart && S.pinPos){
+      const col=COLORS[S.activeBox];
+      const snapped=snapHV(S.pendingStart,S.pinPos,S.activeBox);
+      drawMeasure(S.pendingStart,snapped,'',col,true);
+    }
+    if(S.pinPos) drawCross(S.pinPos.x,S.pinPos.y,COLORS[S.activeBox]||'#fff');
+  }
+
+  if(S.phase==='sweep') drawGauge();
+
+  requestAnimationFrame(render);
+}
+
+// gyro compensation: shift point by orientation delta since lock
+function comp(pt,lockOri){
+  if(!lockOri||!S.hasGyro) return pt;
+  let dA=S.ori.alpha-lockOri.alpha; if(dA>180)dA-=360; if(dA<-180)dA+=360;
+  let dB=S.ori.beta-lockOri.beta;
+  const pxPerDeg=canvas.width/FOV_DEG;
+  return { x: pt.x + dA*pxPerDeg, y: pt.y + dB*pxPerDeg };
+}
+
+function drawCross(x,y,col){
+  ctx.beginPath();ctx.arc(x,y,2.5,0,7);ctx.fillStyle=col;ctx.fill();
+  ctx.beginPath();ctx.moveTo(x-11,y);ctx.lineTo(x+11,y);ctx.moveTo(x,y-11);ctx.lineTo(x,y+11);
+  ctx.strokeStyle=col;ctx.lineWidth=.5;ctx.stroke();
+}
+function dash(a,b,col){
+  ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);
+  ctx.strokeStyle=col;ctx.lineWidth=.8;ctx.setLineDash([5,5]);ctx.stroke();ctx.setLineDash([]);
+}
+function tick(p,q,col){
+  const ang=Math.atan2(q.y-p.y,q.x-p.x)+Math.PI/2,L=6;
+  ctx.beginPath();ctx.moveTo(p.x+Math.cos(ang)*L,p.y+Math.sin(ang)*L);
+  ctx.lineTo(p.x-Math.cos(ang)*L,p.y-Math.sin(ang)*L);
+  ctx.strokeStyle=col;ctx.lineWidth=1;ctx.stroke();
+}
+function drawMeasure(a,b,label,col,dashed){
+  ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);
+  ctx.strokeStyle=col;ctx.lineWidth=1;ctx.setLineDash(dashed?[4,4]:[]);ctx.stroke();ctx.setLineDash([]);
+  tick(a,b,col);tick(b,a,col);drawCross(a.x,a.y,col);drawCross(b.x,b.y,col);
+  if(label){
+    const mx=(a.x+b.x)/2,my=(a.y+b.y)/2;
+    ctx.font='11px Courier New';const tw=ctx.measureText(label).width;
+    ctx.fillStyle='rgba(0,0,0,.78)';ctx.fillRect(mx-tw/2-4,my-20,tw+8,15);
+    ctx.fillStyle=col;ctx.textAlign='center';ctx.fillText(label,mx,my-9);
+  }
+}
+
+// snap to pure horizontal or vertical
+function snapHV(a,b,boxType){
+  const dx=Math.abs(b.x-a.x),dy=Math.abs(b.y-a.y);
+  if(boxType==='height') return {x:a.x,y:b.y};           // vertical
+  if(boxType==='length'||boxType==='width') return {x:b.x,y:a.y}; // horizontal
+  return dx>dy ? {x:b.x,y:a.y} : {x:a.x,y:b.y};
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// SWEEP GAUGE
+// ════════════════════════════════════════════════════════════════════════════
+function drawGauge(){
+  const ang=Math.min(S.sweepAngle,180);
+  const pct=ang/180;
+  const cx=115,cy=115,r=95;
+  // arc path
+  const startA=Math.PI, endA=Math.PI - Math.PI*pct; // sweep top half
+  const x1=cx+r*Math.cos(Math.PI), y1=cy+r*Math.sin(Math.PI);
+  const x2=cx+r*Math.cos(endA), y2=cy+r*Math.sin(endA);
+  const large=pct>0.5?0:0;
+  gauge.innerHTML=`
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2"/>
+    <path d="M ${x1} ${y1} A ${r} ${r} 0 0 1 ${x2} ${y2}" fill="none"
+      stroke="${ang>=88?'#00FFB2':'#FFE000'}" stroke-width="4" stroke-linecap="round"/>
+    <text x="${cx}" y="${cy-4}" text-anchor="middle" fill="${ang>=88?'#00FFB2':'#FFE000'}"
+      font-family="Courier New" font-size="38" font-weight="bold">${Math.round(ang)}°</text>
+    <text x="${cx}" y="${cy+22}" text-anchor="middle" fill="rgba(255,255,255,.4)"
+      font-family="Courier New" font-size="9" letter-spacing="2">${ang>=88?'READY TO LOCK':'KEEP TURNING'}</text>
+  `;
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// EDGE SNAP (Sobel near point)
+// ════════════════════════════════════════════════════════════════════════════
+function snapEdge(tx,ty,R=24){
+  const vW=video.videoWidth||canvas.width,vH=video.videoHeight||canvas.height;
+  const scale=Math.max(canvas.width/vW,canvas.height/vH);
+  const offX=(canvas.width-vW*scale)/2,offY=(canvas.height-vH*scale)/2;
+  eCtx.save();eCtx.clearRect(0,0,eCanvas.width,eCanvas.height);
+  eCtx.translate(offX,offY);eCtx.scale(scale,scale);eCtx.drawImage(video,0,0);eCtx.restore();
+  const sx=Math.max(0,tx-R),sy=Math.max(0,ty-R);
+  const sw=Math.min(eCanvas.width-sx,R*2),sh=Math.min(eCanvas.height-sy,R*2);
+  if(sw<3||sh<3) return {x:tx,y:ty};
+  const d=eCtx.getImageData(sx,sy,sw,sh).data,W=sw,H=sh;
+  const g=new Float32Array(W*H);
+  for(let i=0;i<W*H;i++) g[i]=.299*d[i*4]+.587*d[i*4+1]+.114*d[i*4+2];
+  let mx=0,bx=tx,by=ty;const ix=(r,c)=>g[r*W+c];
+  for(let r=1;r<H-1;r++)for(let c=1;c<W-1;c++){
+    const gx=-ix(r-1,c-1)+ix(r-1,c+1)-2*ix(r,c-1)+2*ix(r,c+1)-ix(r+1,c-1)+ix(r+1,c+1);
+    const gy=-ix(r-1,c-1)-2*ix(r-1,c)-ix(r-1,c+1)+ix(r+1,c-1)+2*ix(r+1,c)+ix(r+1,c+1);
+    const m=Math.sqrt(gx*gx+gy*gy);if(m>mx){mx=m;bx=sx+c;by=sy+r;}
+  }
+  if(mx>18){flashSnap(bx,by);return{x:bx,y:by};}
+  return{x:tx,y:ty};
+}
+function flashSnap(x,y){
+  snapEl.style.cssText=`display:block;left:${x}px;top:${y}px;animation:none;`;
+  requestAnimationFrame(()=>{snapEl.style.animation='snp .4s ease-out forwards';
+    setTimeout(()=>snapEl.style.display='none',420);});
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// LOUPE (iOS-style magnifier)
+// ════════════════════════════════════════════════════════════════════════════
+function showLoupe(x,y){
+  loupe.style.display='block';
+  // position loupe above finger, or below if near top
+  const ly = y < 200 ? y+30 : y-160;
+  loupe.style.left=(x-65)+'px';
+  loupe.style.top=ly+'px';
+  drawLoupe(x,y);
+}
+function drawLoupe(x,y){
+  const z=LOUPE_ZOOM, sz=loupeCv.width, half=sz/(2*z);
+  const vW=video.videoWidth||canvas.width,vH=video.videoHeight||canvas.height;
+  const scale=Math.max(canvas.width/vW,canvas.height/vH);
+  const offX=(canvas.width-vW*scale)/2,offY=(canvas.height-vH*scale)/2;
+  // source coords in video
+  const vx=(x-offX)/scale, vy=(y-offY)/scale, vhalf=half/scale;
+  loupeCtx.clearRect(0,0,sz,sz);
+  try{ loupeCtx.drawImage(video, vx-vhalf, vy-vhalf, vhalf*2, vhalf*2, 0,0,sz,sz); }catch(e){}
+  // crosshair
+  loupeCtx.strokeStyle='#00FFB2';loupeCtx.lineWidth=1.5;
+  loupeCtx.beginPath();loupeCtx.moveTo(sz/2-20,sz/2);loupeCtx.lineTo(sz/2+20,sz/2);
+  loupeCtx.moveTo(sz/2,sz/2-20);loupeCtx.lineTo(sz/2,sz/2+20);loupeCtx.stroke();
+  loupeCtx.beginPath();loupeCtx.arc(sz/2,sz/2,3,0,7);loupeCtx.fillStyle='#00FFB2';loupeCtx.fill();
+}
+function hideLoupe(){ loupe.style.display='none'; }
+
+// ════════════════════════════════════════════════════════════════════════════
+// TOUCH
+// ════════════════════════════════════════════════════════════════════════════
+let dragging=false;
+canvas.addEventListener('touchstart',e=>{
+  e.preventDefault();const t=e.touches[0];
+  if(S.phase==='ruler'){ /* tap handled on touchend */ }
+  if(S.phase==='measure' && S.activeBox && S.pinStage>0){
+    dragging=true;
+    const snp=snapEdge(t.clientX,t.clientY);
+    S.pinPos=snp; showLoupe(snp.x,snp.y); pinConfirm.style.display='block';
+  }
+},{passive:false});
+
+canvas.addEventListener('touchmove',e=>{
+  e.preventDefault();const t=e.touches[0];
+  if(dragging && S.phase==='measure' && S.pinPos){
+    const snp=snapEdge(t.clientX,t.clientY);
+    S.pinPos=snp; showLoupe(snp.x,snp.y);
+  }
+},{passive:false});
+
+canvas.addEventListener('touchend',e=>{
+  e.preventDefault();const t=e.changedTouches[0];
+  if(S.phase==='ruler'){ tapRuler(t.clientX,t.clientY); }
+  if(dragging){ dragging=false; hideLoupe(); }
+},{passive:false});
+
+// ════════════════════════════════════════════════════════════════════════════
+// RULER CALIBRATION
+// ════════════════════════════════════════════════════════════════════════════
+function tapRuler(x,y){
+  const snp=snapEdge(x,y);
+  if(S.rulerPts.length===0){ S.rulerPts.push(snp); calP.textContent='GOOD — NOW TAP THE OTHER END'; }
+  else if(S.rulerPts.length===1){
+    S.rulerPts.push(snp);
+    calP.textContent='ENTER THE REAL LENGTH BETWEEN THOSE POINTS:';
+    calRow.style.display='flex';calU.textContent=U_LABEL[S.unit];
+    calInp.value='';calInp.focus();
+  }
+}
+function confirmRuler(){
+  const v=parseFloat(calInp.value); if(!v||v<=0){calInp.focus();return;}
+  const mm=v/U_FACTOR[S.unit];
+  const p1=S.rulerPts[0],p2=S.rulerPts[1];
+  S.pxPerMM=Math.hypot(p2.x-p1.x,p2.y-p1.y)/mm;
+  S.rulerPts=[];calDlg.classList.remove('show');
+  updateStatus();
+  setPhase('sweep');
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// SWEEP
+// ════════════════════════════════════════════════════════════════════════════
+function startSweep(){
+  S.sweepStartAlpha=S.ori.alpha; lastAlpha=S.ori.alpha; accumSweep=0; S.sweepAngle=0;
+}
+function lockSweep(){
+  if(S.sweepAngle<10 && S.hasGyro){ toast('SWEEP TOO SMALL<br>TURN YOUR BODY FIRST'); return; }
+  S.lockedSweepAngle=S.sweepAngle||90;
+  S.sweepLocked=true;
+  setPhase('measure');
+  toast(`SWEEP LOCKED · ${Math.round(S.lockedSweepAngle)}°<br>DISTANCE CALIBRATED`);
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// MEASUREMENT BOXES
+// ════════════════════════════════════════════════════════════════════════════
+function selectBox(box){
+  if(S.phase!=='measure') return;
+  S.activeBox=box; S.pinStage=1; S.pendingStart=null; S.pinPos=null;
+  document.querySelectorAll('.mbox').forEach(b=>b.classList.remove('on'));
+  document.getElementById('box-'+box).classList.add('on');
+  setPrompt(`${box.toUpperCase()} — TAP & DRAG TO ${box==='height'?'TOP/BOTTOM':'EACH'} CORNER`);
+  pinConfirm.style.display='none';
+}
+function confirmPin(){
+  if(!S.pinPos) return;
+  if(S.pinStage===1){
+    S.pendingStart=S.pinPos; S.pinPos=null; S.pinStage=2;
+    setPrompt(`${S.activeBox.toUpperCase()} — NOW SET THE SECOND CORNER`);
+    pinConfirm.style.display='none';
+  } else if(S.pinStage===2){
+    const a=S.pendingStart;
+    const b=snapHV(a,S.pinPos,S.activeBox);
+    const px=Math.hypot(b.x-a.x,b.y-a.y);
+    const mm=px/S.pxPerMM;
+    S.data[S.activeBox]={a,b,value:mm,lockOri:{...S.ori}};
+    fillBox(S.activeBox,mm);
+    // reset
+    S.pinStage=0;S.pendingStart=null;S.pinPos=null;
+    document.getElementById('box-'+S.activeBox).classList.remove('on');
+    S.activeBox=null;pinConfirm.style.display='none';
+    setPrompt('TAP A BOX TO MEASURE NEXT DIMENSION');
+    toast('LOCKED ✓');
+  }
+}
+function fillBox(box,mm){
+  const el=document.getElementById('box-'+box);
+  el.classList.add('filled');
+  el.querySelector('.bv').className='bv';
+  el.querySelector('.bv').textContent=fmtVal(mm);
+}
+function clearBoxes(){
+  S.data={length:null,height:null,width:null};
+  S.activeBox=null;S.pinStage=0;S.pendingStart=null;S.pinPos=null;
+  document.querySelectorAll('.mbox').forEach(b=>{b.classList.remove('on','filled');
+    b.querySelector('.bv').className='bv empty';b.querySelector('.bv').textContent='— TAP —';});
+  pinConfirm.style.display='none';
+  setPrompt('TAP A BOX TO MEASURE');
+}
+function restartCal(){
+  S.pxPerMM=null;S.sweepLocked=false;S.lockedSweepAngle=null;S.rulerPts=[];
+  clearBoxes();updateStatus();setPhase('ruler');
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// PHASE / UI
+// ════════════════════════════════════════════════════════════════════════════
+function setPhase(p){
+  S.phase=p;
+  calDlg.classList.remove('show');sweepBtn.style.display='none';boxes.style.display='none';
+  pinConfirm.style.display='none';gauge.style.display='none';promptEl.style.display='block';
+  if(p==='ruler'){
+    phaseLbl.textContent='STEP 1 · CALIBRATE';
+    promptEl.style.display='none';
+    calDlg.classList.add('show');calRow.style.display='none';
+    calP.textContent='TAP TWO ENDS OF YOUR RULER / KNOWN OBJECT';
+    S.rulerPts=[];
+  } else if(p==='sweep'){
+    phaseLbl.textContent='STEP 2 · SWEEP LOCK';
+    gauge.style.display='block';sweepBtn.style.display='block';
+    setPrompt(S.hasGyro
+      ? 'STAND IN ONE SPOT · SLOWLY TURN YOUR BODY<br>HIT LOCK AT YOUR CHOSEN ANGLE'
+      : 'MOTION SENSOR UNAVAILABLE<br>TAP LOCK TO CONTINUE');
+    setTimeout(()=>{promptEl.style.display='none';},3500);
+    startSweep();
+  } else if(p==='measure'){
+    phaseLbl.textContent='MEASURE';
+    boxes.style.display='block';
+    setPrompt('TAP A BOX TO MEASURE');
+    setTimeout(()=>{ if(!S.activeBox) promptEl.style.display='none'; },2500);
+  }
+}
+function setUnit(u){
+  S.unit=u;
+  document.querySelectorAll('.u-btn').forEach(b=>b.classList.toggle('on',b.dataset.u===u));
+  calU.textContent=U_LABEL[u];updateStatus();
+  for(const k in S.data){ if(S.data[k]) fillBox(k,S.data[k].value); }
+}
+function fmtVal(mm){ return (mm*U_FACTOR[S.unit]).toFixed(U_DEC[S.unit])+' '+U_LABEL[S.unit]; }
+function updateStatus(){
+  let s=S.pxPerMM?`CAL ✓ ${S.pxPerMM.toFixed(2)}px/mm`:'NOT CALIBRATED';
+  if(S.sweepLocked) s+=`<br>SWEEP ${Math.round(S.lockedSweepAngle)}° LOCKED`;
+  statusLbl.innerHTML=s; statusLbl.style.color=S.pxPerMM?'var(--G)':'rgba(255,255,255,.4)';
+}
+function setPrompt(html){ promptEl.innerHTML=`<p>${html}</p>`; promptEl.style.display='block'; }
+let toastT;
+function toast(msg){
+  toastEl.innerHTML=msg;toastEl.style.display='block';toastEl.style.animation='none';
+  requestAnimationFrame(()=>toastEl.style.animation='tin .2s ease');
+  clearTimeout(toastT);toastT=setTimeout(()=>toastEl.style.display='none',2000);
+}
+
+// PWA manifest
+(function(){const m={name:"NBJ Measure Pro",short_name:"MEASURE",display:"fullscreen",
+  background_color:"#000000",theme_color:"#000000",start_url:".",
+  icons:[{src:`data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' fill='%23000'/><text x='256' y='330' text-anchor='middle' font-size='300' fill='%2300FFB2' font-family='monospace'>⊿</text></svg>`,sizes:"512x512",type:"image/svg+xml"}]};
+  const b=new Blob([JSON.stringify(m)],{type:'application/json'});
+  const l=document.createElement('link');l.rel='manifest';l.href=URL.createObjectURL(b);document.head.appendChild(l);})();
+</script>
+</body>
+</html>
